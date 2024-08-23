@@ -38,6 +38,8 @@ use crate::commands::reporters::PythonDownloadReporter;
 use crate::commands::{ExitStatus, SharedState};
 use crate::printer::Printer;
 
+use super::project::find_python_request;
+
 /// Create a virtual environment.
 #[allow(clippy::unnecessary_wraps, clippy::fn_params_excessive_bools)]
 pub(crate) async fn venv(
@@ -140,45 +142,14 @@ async fn venv_impl(
 
     let reporter = PythonDownloadReporter::single(printer);
 
-    // (1) Explicit request from user
-    let mut interpreter_request = python_request.map(PythonRequest::parse);
-
-    // (2) Request from `.python-version`
-    if interpreter_request.is_none() {
-        // TODO(zanieb): Support `--no-config` here
-        interpreter_request = PythonVersionFile::discover(&*CWD, false, false)
-            .await
-            .into_diagnostic()?
-            .and_then(PythonVersionFile::into_version);
-    }
-
-    // (3) `Requires-Python` in `pyproject.toml`
-    if interpreter_request.is_none() {
-        let project = match VirtualProject::discover(&CWD, &DiscoveryOptions::default()).await {
-            Ok(project) => Some(project),
-            Err(WorkspaceError::MissingProject(_)) => None,
-            Err(WorkspaceError::MissingPyprojectToml) => None,
-            Err(WorkspaceError::NonWorkspace(_)) => None,
-            Err(err) => {
-                warn_user_once!("{err}");
-                None
-            }
-        };
-
-        if let Some(project) = project {
-            interpreter_request = find_requires_python(project.workspace())
-                .into_diagnostic()?
-                .as_ref()
-                .map(RequiresPython::specifiers)
-                .map(|specifiers| {
-                    PythonRequest::Version(VersionRequest::Range(specifiers.clone()))
-                });
-        }
-    }
+    // TODO(zanieb): Add `no-project` support to `uv venv`
+    let python_request = find_python_request(python_request, false, false)
+        .await
+        .into_diagnostic()?;
 
     // Locate the Python interpreter to use in the environment
     let python = PythonInstallation::find_or_download(
-        interpreter_request,
+        python_request.unwrap_or_default(),
         EnvironmentPreference::OnlySystem,
         python_preference,
         python_downloads,
