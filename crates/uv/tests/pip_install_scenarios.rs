@@ -1,7 +1,7 @@
 //! DO NOT EDIT
 //!
 //! Generated with `./scripts/sync_scenarios.sh`
-//! Scenarios from <https://github.com/astral-sh/packse/tree/0.3.34/scenarios>
+//! Scenarios from <https://github.com/astral-sh/packse/tree/0.3.36/scenarios>
 //!
 #![cfg(all(feature = "python", feature = "pypi", unix))]
 
@@ -3753,10 +3753,9 @@ fn python_less_than_current() {
      + package-a==1.0.0
     "###);
 
-    assert_installed(
+    assert_not_installed(
         &context.venv,
         "python_less_than_current_a",
-        "1.0.0",
         &context.temp_dir,
     );
 }
